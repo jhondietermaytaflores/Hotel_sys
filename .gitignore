@@ -1,0 +1,7 @@
+
+infra/terraform/terraform.tfvars
+
+oke-key
+oke-key.pub
+
+OCI_USERNAME
