@@ -1,3 +1,18 @@
+terraform {
+  required_version = ">= 1.3.0"
+
+  required_providers {
+    oci = {
+      source  = "oracle/oci"
+      version = ">= 4.54.0"
+    }
+  }
+}
+
+# -------------------------------------------------------------------
+# 1. PROVIDERS
+# -------------------------------------------------------------------
+
 provider "oci" {
   tenancy_ocid = var.tenancy_id
   user_ocid    = var.user_id
@@ -15,39 +30,47 @@ provider "oci" {
   region       = var.home_region
 }
 
+# -------------------------------------------------------------------
+# 2. OKE MODULE (version 5.3.3)
+# -------------------------------------------------------------------
 
 module "oke" {
   source  = "oracle-terraform-modules/oke/oci"
-  version = "7.1.0" # verifica la más reciente en el registry
+  version = "5.3.3"
 
   tenancy_id     = var.tenancy_id
   compartment_id = var.compartment_id
 
-  home_region = var.home_region
   region      = var.region
+  home_region = var.home_region
 
-  label_prefix = var.label_prefix
+  # El módulo 5.3.3 NO soporta label_prefix → lo aplicamos manualmente
+  vcn_name   = "${var.label_prefix}-vcn"
+  vcn_cidr   = "10.0.0.0/16"
+  create_vcn = true
 
-  ssh_private_key_path = var.ssh_private_key_path
+  control_plane_type = "public"
+
+  # SSH KEYS (por ruta)
   ssh_public_key_path  = var.ssh_public_key_path
+  ssh_private_key_path = var.ssh_private_key_path
 
-  ssh_private_key = var.ssh_private_key
-  ssh_public_key  = var.ssh_public_key
+  # Node Pool simple y estable
+  worker_node_pool_size = 1
+  worker_node_shape      = "VM.Standard.E4.Flex"
+  worker_node_ocpus      = 1
+  worker_node_memory     = 8
 
-  # Configuramos un node pool sencillo
-  node_pools = {
-    np1 = {
-      shape            = "VM.Standard.E4.Flex"
-      ocpus            = 1
-      memory           = 8
-      node_pool_size   = 1
-      boot_volume_size = 100
-    }
-  }
-
-  # Puedes ajustar más parámetros: red, CNI, LB, etc.
   providers = {
     oci      = oci
     oci.home = oci.home
   }
+}
+
+# -------------------------------------------------------------------
+# 3. OUTPUTS
+# -------------------------------------------------------------------
+
+output "cluster_id" {
+  value = module.oke.cluster_id
 }

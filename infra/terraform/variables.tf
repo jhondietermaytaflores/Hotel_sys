@@ -21,7 +21,6 @@ variable "home_region" {
 
 variable "label_prefix" {
   type        = string
-  default     = "hotel"
   description = "Prefijo para recursos"
 }
 
