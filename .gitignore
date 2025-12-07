@@ -5,3 +5,9 @@ oke-key
 oke-key.pub
 
 OCI_USERNAME
+
+keys/
+keys/*
+keys/OCI_USERNAME
+keys/oke-key.pub
+keys/oke-key

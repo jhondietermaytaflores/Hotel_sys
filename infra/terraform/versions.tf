@@ -8,6 +8,6 @@ terraform {
     }
   }
 
-  # TODO: Cambia esto para usar backend remoto en Object Storage
-  # backend "local" {}
+  # Más adelante puedes cambiar a backend remoto en Object Storage
+  backend "local" {}
 }

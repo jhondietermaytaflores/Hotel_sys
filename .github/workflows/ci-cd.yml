@@ -1,0 +1,131 @@
+name: CI/CD OCI OKE
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  OCI_REGION: ${{ secrets.OCI_REGION }}
+  OCI_NAMESPACE: ${{ secrets.OCI_NAMESPACE }}
+  OCIR_REGISTRY: "${{ secrets.OCI_REGION }}.ocir.io"
+  APP_NAME: "hotel"
+
+jobs:
+  build-and-push-images:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to OCIR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.OCIR_REGISTRY }}
+          username: ${{ secrets.OCI_USERNAME }}
+          password: ${{ secrets.OCI_AUTH_TOKEN }}
+
+      - name: Build and push backend
+        run: |
+          docker build -t $OCIR_REGISTRY/$OCI_NAMESPACE/${APP_NAME}-backend:latest ./apps/backend
+          docker push $OCIR_REGISTRY/$OCI_NAMESPACE/${APP_NAME}-backend:latest
+
+      - name: Build and push frontend
+        run: |
+          docker build -t $OCIR_REGISTRY/$OCI_NAMESPACE/${APP_NAME}-frontend:latest ./apps/frontend
+          docker push $OCIR_REGISTRY/$OCI_NAMESPACE/${APP_NAME}-frontend:latest
+
+  terraform-apply:
+    runs-on: ubuntu-latest
+    needs: build-and-push-images
+    defaults:
+      run:
+        working-directory: infra/terraform
+
+    env:
+      # Vars para provider OCI
+      TF_VAR_tenancy_id:       ${{ secrets.OCI_TENANCY_OCID }}
+      TF_VAR_compartment_id:   ${{ secrets.OCI_COMPARTMENT_OCID }}
+      TF_VAR_region:           ${{ secrets.OCI_REGION }}
+      TF_VAR_home_region:      ${{ secrets.OCI_HOME_REGION }}
+      TF_VAR_label_prefix:     "hotel"
+
+      TF_VAR_user_id:          ${{ secrets.OCI_USER_OCID }}
+      TF_VAR_api_fingerprint:  ${{ secrets.OCI_API_FINGERPRINT }}
+      TF_VAR_api_private_key:  ${{ secrets.OCI_API_PRIVATE_KEY }}
+
+      TF_VAR_ssh_public_key_path:  "~/.ssh/oke-key.pub"
+      TF_VAR_ssh_private_key_path: "~/.ssh/oke-key"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Escribir claves SSH para OKE
+        run: |
+          mkdir -p ~/.ssh
+          echo "${TF_SSH_PRIVATE_KEY}" > ~/.ssh/oke-key
+          echo "${TF_SSH_PUBLIC_KEY}" > ~/.ssh/oke-key.pub
+          chmod 600 ~/.ssh/oke-key
+          chmod 644 ~/.ssh/oke-key.pub
+        env:
+          TF_SSH_PRIVATE_KEY: ${{ secrets.TF_SSH_PRIVATE_KEY }}
+          TF_SSH_PUBLIC_KEY:  ${{ secrets.TF_SSH_PUBLIC_KEY }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.0
+
+      - name: Terraform Init
+        run: terraform init
+
+      - name: Terraform Plan
+        run: terraform plan -input=false
+
+      - name: Terraform Apply
+        run: terraform apply -auto-approve -input=false
+
+      - name: Guardar cluster_id como output
+        id: tf-output
+        run: |
+          CLUSTER_ID=$(terraform output -raw cluster_id)
+          echo "cluster_id=$CLUSTER_ID" >> $GITHUB_OUTPUT
+
+  deploy-to-oke:
+    runs-on: ubuntu-latest
+    needs: terraform-apply
+
+    env:
+      OCI_CLI_USER:        ${{ secrets.OCI_USER_OCID }}        # user OCID
+      OCI_CLI_TENANCY:     ${{ secrets.OCI_TENANCY_OCID }}
+      OCI_CLI_FINGERPRINT: ${{ secrets.OCI_API_FINGERPRINT }}
+      OCI_CLI_KEY_CONTENT: ${{ secrets.OCI_API_PRIVATE_KEY }}
+      OCI_CLI_REGION:      ${{ secrets.OCI_REGION }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure kubectl for OKE
+        uses: oracle-actions/configure-kubectl-oke@v1.5.0
+        with:
+          cluster: ${{ needs.terraform-apply.outputs.cluster_id }}
+
+      - name: Create namespace (idempotente)
+        run: |
+          kubectl apply -f k8s/namespace.yaml
+
+      - name: Deploy backend
+        run: |
+          kubectl apply -f k8s/backend-deployment.yaml
+          kubectl apply -f k8s/backend-service.yaml
+
+      - name: Deploy frontend
+        run: |
+          kubectl apply -f k8s/frontend-deployment.yaml
+          kubectl apply -f k8s/frontend-service.yaml

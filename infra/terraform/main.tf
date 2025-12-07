@@ -1,16 +1,24 @@
 provider "oci" {
-  region = var.region
+  tenancy_ocid = var.tenancy_id
+  user_ocid    = var.user_id
+  fingerprint  = var.api_fingerprint
+  private_key  = var.api_private_key
+  region       = var.region
 }
 
-# Alias home_region si lo necesitas
 provider "oci" {
-  alias  = "home"
-  region = var.home_region
+  alias        = "home"
+  tenancy_ocid = var.tenancy_id
+  user_ocid    = var.user_id
+  fingerprint  = var.api_fingerprint
+  private_key  = var.api_private_key
+  region       = var.home_region
 }
+
 
 module "oke" {
   source  = "oracle-terraform-modules/oke/oci"
-  version = "5.3.3" # verifica la más reciente en el registry
+  version = "5.1.1" # verifica la más reciente en el registry
 
   tenancy_id     = var.tenancy_id
   compartment_id = var.compartment_id
@@ -20,6 +28,9 @@ module "oke" {
 
   label_prefix = var.label_prefix
 
+  ssh_private_key_path = var.ssh_private_key_path
+  ssh_public_key_path  = var.ssh_public_key_path
+
   ssh_private_key = var.ssh_private_key
   ssh_public_key  = var.ssh_public_key
 
@@ -27,15 +38,16 @@ module "oke" {
   node_pools = {
     np1 = {
       shape            = "VM.Standard.E4.Flex"
-      ocpus            = 2
-      memory           = 16
+      ocpus            = 1
+      memory           = 8
       node_pool_size   = 1
-      boot_volume_size = 150
+      boot_volume_size = 100
     }
   }
 
   # Puedes ajustar más parámetros: red, CNI, LB, etc.
   providers = {
+    oci      = oci
     oci.home = oci.home
   }
 }

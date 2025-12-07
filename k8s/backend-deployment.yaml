@@ -1,0 +1,25 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hotel-backend
+  namespace: hotel-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hotel-backend
+  template:
+    metadata:
+      labels:
+        app: hotel-backend
+    spec:
+      containers:
+        - name: hotel-backend
+          image: sa-saopaulo-1.ocir.io/gr5qlqqo3kg8/hotel-backend:latest
+          ports:
+            - containerPort: 3000
+          env:
+            - name: PORT
+              value: "3000"
+            # Aquí luego pones variables de conexión a Supabase, etc.
+            
