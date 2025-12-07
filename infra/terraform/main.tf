@@ -89,9 +89,12 @@ resource "oci_core_instance" "hotel_vm" {
   }
 
   source_details {
-    source_type = "image"
-    image_id    = data.oci_core_images.oracle_linux_latest.images[0].id
+  source_type = "image"
+  image_source_details {
+    image_id = data.oci_core_images.oracle_linux_latest.images[0].id
   }
+}
+
 }
 
 # -------------------------------------------------------------
