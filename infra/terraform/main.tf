@@ -114,14 +114,18 @@ data "oci_containerengine_node_pool_option" "options" {
   node_pool_option_id = oci_containerengine_cluster.oke.id
 }
 
+#locals {
+#  oke_image = [
+#    for img in data.oci_core_images.oke_images.images :
+#    img.id
+#    if can(img.display_name) &&
+#       regex("(?i)OKE", img.display_name)
+#  ][0]
+#}
 locals {
-  oke_image = [
-    for img in data.oci_core_images.oke_images.images :
-    img.id
-    if can(img.display_name) &&
-       regex("(?i)OKE", img.display_name)
-  ][0]
+  oke_image = data.oci_core_images.oke_images.images[0].id
 }
+
 
 output "debug_images" {
   value = [
