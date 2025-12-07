@@ -67,7 +67,7 @@ resource "oci_containerengine_cluster" "oke" {
   compartment_id     = var.compartment_id
   name               = "${var.label_prefix}-cluster"
   vcn_id             = oci_core_vcn.main.id
-  kubernetes_version = "v1.29.1"
+  kubernetes_version = "v1.33.1"
 
   endpoint_config {
     is_public_ip_enabled = true
@@ -87,7 +87,7 @@ resource "oci_containerengine_node_pool" "pool1" {
   compartment_id     = var.compartment_id
   cluster_id         = oci_containerengine_cluster.oke.id
   name               = "${var.label_prefix}-nodepool"
-  kubernetes_version = "v1.29.1"
+  kubernetes_version = "v1.33.1"
   node_shape         = "VM.Standard.E4.Flex"
 
   node_config_details {
