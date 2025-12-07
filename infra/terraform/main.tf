@@ -162,6 +162,10 @@ node_shape = "VM.Standard2.1"
 
   ssh_public_key = file(var.ssh_public_key_path)
 
+  node_source_details {
+    source_type = "IMAGE"
+  }
+
 
   node_config_details {
     size = 1
