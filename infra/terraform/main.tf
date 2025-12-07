@@ -18,44 +18,98 @@ provider "oci" {
 }
 
 # -------------------------------------------------------------------
-#  OKE MODULE (OCIR official)
+# NETWORK (VCN + SUBNETS)
 # -------------------------------------------------------------------
 
-module "oke" {
-  source  = "oracle/oke/oci"
-  version = "4.4.0"
-
-  # Required
+resource "oci_core_vcn" "main" {
+  cidr_block     = "10.0.0.0/16"
   compartment_id = var.compartment_id
+  display_name   = "${var.label_prefix}-vcn"
+}
 
-  cluster_name = "${var.label_prefix}-cluster"
+resource "oci_core_subnet" "public" {
+  cidr_block              = "10.0.1.0/24"
+  vcn_id                  = oci_core_vcn.main.id
+  compartment_id          = var.compartment_id
+  display_name            = "${var.label_prefix}-public-subnet"
+  prohibit_public_ip_on_vnic = false
+}
 
-  # Create VCN automatically
-  create_vcn = true
+resource "oci_core_subnet" "private" {
+  cidr_block              = "10.0.2.0/24"
+  vcn_id                  = oci_core_vcn.main.id
+  compartment_id          = var.compartment_id
+  display_name            = "${var.label_prefix}-private-subnet"
+  prohibit_public_ip_on_vnic = true
+}
 
-  # Pods network (CNI)
-  cni_type = "OCI_VCN_IP_NATIVE"
+resource "oci_core_internet_gateway" "igw" {
+  display_name   = "${var.label_prefix}-igw"
+  vcn_id         = oci_core_vcn.main.id
+  compartment_id = var.compartment_id
+}
 
-  kubernetes_version = "v1.29.1" # versión estable
+resource "oci_core_default_route_table" "rt" {
+  manage_default_resource_id = oci_core_vcn.main.default_route_table_id
 
-  # Public endpoint
-  endpoint_config = {
-    is_public_ip_enabled = true
-  }
-
-  # SSH keys (paths created in GitHub Actions runner)
-  ssh_public_key_path  = var.ssh_public_key_path
-
-  # Node Pool
-  node_pools = {
-    pool1 = {
-      name               = "hotel-pool"
-      shape              = "VM.Standard.E4.Flex"
-      ocpus              = 1
-      memory_in_gbs      = 8
-      size               = 1
-    }
+  route_rules {
+    network_entity_id = oci_core_internet_gateway.igw.id
+    destination       = "0.0.0.0/0"
+    description       = "Internet access"
   }
 }
 
+# -------------------------------------------------------------------
+# OKE CLUSTER
+# -------------------------------------------------------------------
 
+resource "oci_containerengine_cluster" "oke" {
+  compartment_id     = var.compartment_id
+  name               = "${var.label_prefix}-cluster"
+  vcn_id             = oci_core_vcn.main.id
+  kubernetes_version = "v1.29.1"
+
+  endpoint_config {
+    is_public_ip_enabled = true
+    subnet_id            = oci_core_subnet.public.id
+  }
+
+  options {
+    service_lb_subnet_ids = [oci_core_subnet.public.id]
+  }
+}
+
+# -------------------------------------------------------------------
+# NODE POOL
+# -------------------------------------------------------------------
+
+resource "oci_containerengine_node_pool" "pool1" {
+  compartment_id     = var.compartment_id
+  cluster_id         = oci_containerengine_cluster.oke.id
+  name               = "${var.label_prefix}-nodepool"
+  kubernetes_version = "v1.29.1"
+  node_shape         = "VM.Standard.E4.Flex"
+
+  node_config_details {
+    size = 1
+    placement_configs {
+      availability_domain = data.oci_identity_availability_domains.ads.availability_domains[0].name
+      subnet_id           = oci_core_subnet.private.id
+    }
+  }
+
+  node_shape_config {
+    ocpus         = 1
+    memory_in_gbs = 8
+  }
+
+  ssh_public_key = file(var.ssh_public_key_path)
+}
+
+# -------------------------------------------------------------------
+# DATA SOURCE FOR ADs
+# -------------------------------------------------------------------
+
+data "oci_identity_availability_domains" "ads" {
+  compartment_id = var.tenancy_id
+}
