@@ -88,6 +88,9 @@ resource "oci_containerengine_cluster" "oke" {
   name               = "${var.label_prefix}-cluster"
   kubernetes_version = "v1.33.1"
 
+  # Required
+  vcn_id = oci_core_vcn.main.id
+
   endpoint_config {
     is_public_ip_enabled = true
     subnet_id            = oci_core_subnet.public.id
