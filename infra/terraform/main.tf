@@ -17,56 +17,75 @@ provider "oci" {
   region       = var.region
 }
 
-# -------------------------------------------------------------------
-# NETWORK (VCN + SUBNETS)
-# -------------------------------------------------------------------
+
+# -------------------------------------------------------------
+# DATA SOURCES
+# -------------------------------------------------------------
+
+# Availability domains
+data "oci_identity_availability_domains" "ads" {
+  compartment_id = var.tenancy_id
+}
+
+# Get valid images for workers
+data "oci_core_images" "oke_images" {
+  compartment_id           = var.compartment_id
+  operating_system         = "Oracle Linux"
+  operating_system_version = "9"
+  shape                    = "VM.Standard.E4.Flex"
+}
+
+# -------------------------------------------------------------
+# NETWORKING
+# -------------------------------------------------------------
 
 resource "oci_core_vcn" "main" {
   cidr_block     = "10.0.0.0/16"
-  compartment_id = var.compartment_id
   display_name   = "${var.label_prefix}-vcn"
-}
-
-resource "oci_core_subnet" "public" {
-  cidr_block              = "10.0.1.0/24"
-  vcn_id                  = oci_core_vcn.main.id
-  compartment_id          = var.compartment_id
-  display_name            = "${var.label_prefix}-public-subnet"
-  prohibit_public_ip_on_vnic = false
-}
-
-resource "oci_core_subnet" "private" {
-  cidr_block              = "10.0.2.0/24"
-  vcn_id                  = oci_core_vcn.main.id
-  compartment_id          = var.compartment_id
-  display_name            = "${var.label_prefix}-private-subnet"
-  prohibit_public_ip_on_vnic = true
+  compartment_id = var.compartment_id
 }
 
 resource "oci_core_internet_gateway" "igw" {
+  compartment_id = var.compartment_id
   display_name   = "${var.label_prefix}-igw"
   vcn_id         = oci_core_vcn.main.id
-  compartment_id = var.compartment_id
+  enabled        = true
 }
 
 resource "oci_core_default_route_table" "rt" {
   manage_default_resource_id = oci_core_vcn.main.default_route_table_id
 
   route_rules {
-    network_entity_id = oci_core_internet_gateway.igw.id
     destination       = "0.0.0.0/0"
+    destination_type  = "CIDR_BLOCK"
+    network_entity_id = oci_core_internet_gateway.igw.id
     description       = "Internet access"
   }
 }
 
-# -------------------------------------------------------------------
+resource "oci_core_subnet" "public" {
+  cidr_block                 = "10.0.1.0/24"
+  display_name               = "${var.label_prefix}-public-subnet"
+  compartment_id             = var.compartment_id
+  vcn_id                     = oci_core_vcn.main.id
+  prohibit_public_ip_on_vnic = false
+}
+
+resource "oci_core_subnet" "private" {
+  cidr_block                 = "10.0.2.0/24"
+  display_name               = "${var.label_prefix}-private-subnet"
+  compartment_id             = var.compartment_id
+  vcn_id                     = oci_core_vcn.main.id
+  prohibit_public_ip_on_vnic = true
+}
+
+# -------------------------------------------------------------
 # OKE CLUSTER
-# -------------------------------------------------------------------
+# -------------------------------------------------------------
 
 resource "oci_containerengine_cluster" "oke" {
   compartment_id     = var.compartment_id
   name               = "${var.label_prefix}-cluster"
-  vcn_id             = oci_core_vcn.main.id
   kubernetes_version = "v1.33.1"
 
   endpoint_config {
@@ -76,27 +95,25 @@ resource "oci_containerengine_cluster" "oke" {
 
   options {
     service_lb_subnet_ids = [oci_core_subnet.public.id]
+
+    kubernetes_network_config {
+      pods_cidr     = "10.244.0.0/16"
+      services_cidr = "10.96.0.0/16"
+    }
   }
 }
 
-# -------------------------------------------------------------------
+# -------------------------------------------------------------
 # NODE POOL
-# -------------------------------------------------------------------
+# -------------------------------------------------------------
 
 resource "oci_containerengine_node_pool" "pool1" {
   compartment_id     = var.compartment_id
   cluster_id         = oci_containerengine_cluster.oke.id
   name               = "${var.label_prefix}-nodepool"
   kubernetes_version = "v1.33.1"
-  node_shape         = "VM.Standard.E4.Flex"
 
-  node_config_details {
-    size = 1
-    placement_configs {
-      availability_domain = data.oci_identity_availability_domains.ads.availability_domains[0].name
-      subnet_id           = oci_core_subnet.private.id
-    }
-  }
+  node_shape = "VM.Standard.E4.Flex"
 
   node_shape_config {
     ocpus         = 1
@@ -104,12 +121,22 @@ resource "oci_containerengine_node_pool" "pool1" {
   }
 
   ssh_public_key = file(var.ssh_public_key_path)
+
+  node_source_details {
+    source_type = "IMAGE"
+    image_id    = data.oci_core_images.oke_images.images[0].id
+  }
+
+  node_config_details {
+    size = 1
+
+    placement_configs {
+      availability_domain = data.oci_identity_availability_domains.ads.availability_domains[0].name
+      subnet_id           = oci_core_subnet.private.id
+    }
+  }
 }
 
-# -------------------------------------------------------------------
-# DATA SOURCE FOR ADs
-# -------------------------------------------------------------------
 
-data "oci_identity_availability_domains" "ads" {
-  compartment_id = var.tenancy_id
-}
+
+
