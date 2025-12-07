@@ -68,15 +68,15 @@ resource "oci_core_subnet" "public" {
 }
 
 # -------------------------------------------------------------
-# COMPUTE INSTANCE — DEPLOY DOCKER
+# COMPUTE INSTANCE — VM PARA DOCKER
 # -------------------------------------------------------------
 
 resource "oci_core_instance" "hotel_vm" {
   compartment_id      = var.compartment_id
   availability_domain = data.oci_identity_availability_domains.ads.availability_domains[0].name
 
-  shape         = "VM.Standard2.1"
-  display_name  = "hotel-app-server"
+  shape        = "VM.Standard2.1"
+  display_name = "hotel-app-server"
 
   create_vnic_details {
     subnet_id        = oci_core_subnet.public.id
@@ -89,12 +89,10 @@ resource "oci_core_instance" "hotel_vm" {
   }
 
   source_details {
-  source_type = "image"
-  image_source_details {
-    image_id = data.oci_core_images.oracle_linux_latest.images[0].id
+    source_type = "image"
+    # OJO: aquí es source_id, no image_id ni blocks raros
+    source_id   = data.oci_core_images.oracle_linux_latest.images[0].id
   }
-}
-
 }
 
 # -------------------------------------------------------------
