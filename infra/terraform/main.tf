@@ -9,10 +9,6 @@ terraform {
   }
 }
 
-# -------------------------------------------------------------------
-# 1. PROVIDERS
-# -------------------------------------------------------------------
-
 provider "oci" {
   tenancy_ocid = var.tenancy_id
   user_ocid    = var.user_id
@@ -21,49 +17,44 @@ provider "oci" {
   region       = var.region
 }
 
-provider "oci" {
-  alias        = "home"
-  tenancy_ocid = var.tenancy_id
-  user_ocid    = var.user_id
-  fingerprint  = var.api_fingerprint
-  private_key  = var.api_private_key
-  region       = var.home_region
-}
-
 # -------------------------------------------------------------------
-# 2. OKE MODULE (version 5.3.3)
+#  OKE MODULE (OCIR official)
 # -------------------------------------------------------------------
 
 module "oke" {
-  source  = "oracle-terraform-modules/oke/oci"
-  version = "5.3.3"
+  source  = "oracle/oke/oci"
+  version = "4.4.0"
 
-  tenancy_id     = var.tenancy_id
+  # Required
   compartment_id = var.compartment_id
 
-  region      = var.region
-  home_region = var.home_region
+  cluster_name = "${var.label_prefix}-cluster"
 
-  # El módulo 5.3.3 NO soporta label_prefix → lo aplicamos manualmente
-  vcn_name   = "${var.label_prefix}-vcn"
-  vcn_cidr   = "10.0.0.0/16"
+  # Create VCN automatically
   create_vcn = true
 
-  control_plane_type = "public"
+  # Pods network (CNI)
+  cni_type = "OCI_VCN_IP_NATIVE"
 
-  # SSH KEYS (por ruta)
+  kubernetes_version = "v1.29.1" # versión estable
+
+  # Public endpoint
+  endpoint_config = {
+    is_public_ip_enabled = true
+  }
+
+  # SSH keys (paths created in GitHub Actions runner)
   ssh_public_key_path  = var.ssh_public_key_path
-  ssh_private_key_path = var.ssh_private_key_path
 
-  # Node Pool simple y estable
-  worker_node_pool_size = 1
-  worker_node_shape      = "VM.Standard.E4.Flex"
-  worker_node_ocpus      = 1
-  worker_node_memory     = 8
-
-  providers = {
-    oci      = oci
-    oci.home = oci.home
+  # Node Pool
+  node_pools = {
+    pool1 = {
+      name               = "hotel-pool"
+      shape              = "VM.Standard.E4.Flex"
+      ocpus              = 1
+      memory_in_gbs      = 8
+      size               = 1
+    }
   }
 }
 
