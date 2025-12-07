@@ -110,9 +110,15 @@ resource "oci_containerengine_cluster" "oke" {
 # DATA SOURCE FOR NODE POOL OPTIONS (MUST BE AFTER CLUSTER)
 # -------------------------------------------------------------
 
-data "oci_containerengine_node_pool_option" "options" {
-  node_pool_option_id = oci_containerengine_cluster.oke.id
+# Filtramos LA imagen compatible con VM.Standard.E4.Flex
+locals {
+  oke_image = [
+    for s in data.oci_containerengine_node_pool_option.options.sources :
+    s.image_id
+    if s.source_type == "IMAGE" && s.shape == "VM.Standard.E4.Flex"
+  ][0]
 }
+
 
 # -------------------------------------------------------------
 # NODE POOL
@@ -136,7 +142,7 @@ resource "oci_containerengine_node_pool" "pool1" {
   # Imagen CERTIFICADA por OKE
   node_source_details {
     source_type = "IMAGE"
-    image_id    = data.oci_containerengine_node_pool_option.options.sources[0].image_id
+    image_id    = local.oke_image
   }
 
   node_config_details {
