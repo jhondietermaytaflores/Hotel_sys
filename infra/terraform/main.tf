@@ -114,12 +114,11 @@ data "oci_containerengine_node_pool_option" "options" {
   node_pool_option_id = oci_containerengine_cluster.oke.id
 }
 
-# Filtramos LA imagen compatible con VM.Standard.E4.Flex
 locals {
   oke_image = [
     for s in data.oci_containerengine_node_pool_option.options.sources :
     s.image_id
-    if s.source_type == "IMAGE" && s.shape == "VM.Standard.E4.Flex"
+    if s.source_type == "IMAGE"
   ][0]
 }
 
