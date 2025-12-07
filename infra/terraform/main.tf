@@ -118,8 +118,20 @@ locals {
   oke_image = [
     for s in data.oci_containerengine_node_pool_option.options.sources :
     s.image_id
-    if s.source_type == "IMAGE" && lookup(s, "is_default", false) == true
+    if s.source_type == "IMAGE" &&
+       can(s.display_name) &&
+       regex("(?i)OKE", s.display_name)
   ][0]
+}
+
+output "debug_images" {
+  value = [
+    for s in data.oci_containerengine_node_pool_option.options.sources :
+    {
+      id   = s.image_id
+      name = can(s.display_name) ? s.display_name : "unknown"
+    }
+  ]
 }
 
 
