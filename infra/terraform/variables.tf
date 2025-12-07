@@ -17,16 +17,7 @@ variable "home_region" {
   type        = string
   description = "Región home de tu tenancy"
 }
-# Claves SSH para nodos OKE
-variable "ssh_public_key" {
-  type        = string
-  description = "Clave pública para los nodos oke-key.pub"
-}
 
-variable "ssh_private_key" {
-  type        = string
-  description = "Clave privada para acceso a nodos oke-key"
-}
 
 variable "label_prefix" {
   type        = string
