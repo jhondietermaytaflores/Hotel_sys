@@ -157,20 +157,11 @@ resource "oci_containerengine_node_pool" "pool1" {
   name               = "${var.label_prefix}-nodepool"
   kubernetes_version = "v1.33.1"
 
-  node_shape = "VM.Standard3.Flex"
+node_shape = "VM.Standard2.1"
 
-  node_shape_config {
-    ocpus         = 1
-    memory_in_gbs = 8
-  }
 
   ssh_public_key = file(var.ssh_public_key_path)
 
-  # Imagen CERTIFICADA por OKE
-  node_source_details {
-    source_type = "IMAGE"
-    image_id    = local.oke_image
-  }
 
   node_config_details {
     size = 1
