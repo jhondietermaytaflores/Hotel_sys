@@ -12,3 +12,9 @@ services:
     container_name: frontend
     ports:
       - "80:80"
+#Así ambos servicios comparten red automáticamente.
+networks:
+  default:
+    external: true
+    name: hotel-net
+
