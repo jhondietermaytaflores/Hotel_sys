@@ -17,21 +17,12 @@ provider "oci" {
   region       = var.region
 }
 
-
 # -------------------------------------------------------------
 # DATA SOURCES
 # -------------------------------------------------------------
 
-# Availability domains
 data "oci_identity_availability_domains" "ads" {
   compartment_id = var.tenancy_id
-}
-
-# Get valid images for workers
-data "oci_core_images" "oke_images" {
-  compartment_id           = var.compartment_id
-  operating_system         = "Oracle Linux"
-  operating_system_version = "9"
 }
 
 # -------------------------------------------------------------
@@ -87,7 +78,6 @@ resource "oci_containerengine_cluster" "oke" {
   name               = "${var.label_prefix}-cluster"
   kubernetes_version = "v1.33.1"
 
-  # Required
   vcn_id = oci_core_vcn.main.id
 
   endpoint_config {
@@ -106,54 +96,16 @@ resource "oci_containerengine_cluster" "oke" {
 }
 
 # -------------------------------------------------------------
-# DATA SOURCE FOR NODE POOL OPTIONS (MUST BE AFTER CLUSTER)
+# NODE POOL OPTIONS (SOLO PARA VER SHAPES)
 # -------------------------------------------------------------
 
 data "oci_containerengine_node_pool_option" "options" {
   node_pool_option_id = oci_containerengine_cluster.oke.id
 }
 
-#locals {
-#  oke_image = [
-#    for img in data.oci_core_images.oke_images.images :
-#    img.id
-#    if can(img.display_name) &&
-#       regex("(?i)OKE", img.display_name)
-#  ][0]
-#}
-locals {
-  oke_compatible_images = [
-    for img in data.oci_core_images.oke_images.images :
-    img
-    if can(img.display_name) && (
-      regex("(?i)OKE", img.display_name)
-    )
-  ]
-
-  # elegir la más reciente
-  oke_image_id = local.oke_compatible_images[0].id
-}
-
-
-
-output "debug_images" {
-  value = [
-    for img in data.oci_core_images.oke_images.images :
-    {
-      id   = img.id
-      name = img.display_name
-    }
-  ]
-}
-
 output "valid_shapes" {
   value = data.oci_containerengine_node_pool_option.options.shapes
 }
-
-output "oke_filtered_images" {
-  value = local.oke_compatible_images
-}
-
 
 # -------------------------------------------------------------
 # NODE POOL
@@ -165,16 +117,13 @@ resource "oci_containerengine_node_pool" "pool1" {
   name               = "${var.label_prefix}-nodepool"
   kubernetes_version = "v1.33.1"
 
-node_shape = "VM.Standard2.1"
-
+  node_shape = "VM.Standard2.1"
 
   ssh_public_key = file(var.ssh_public_key_path)
 
   node_source_details {
-    source_type = "IMAGE"
-    image_id    = local.oke_image_id
+    source_type = "IMAGE"  # OCI seleccionará la imagen compatible automáticamente
   }
-
 
   node_config_details {
     size = 1
@@ -185,7 +134,3 @@ node_shape = "VM.Standard2.1"
     }
   }
 }
-
-
-
-
