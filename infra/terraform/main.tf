@@ -107,6 +107,11 @@ output "valid_shapes" {
   value = data.oci_containerengine_node_pool_option.options.shapes
 }
 
+locals {
+  oke_image_id = data.oci_containerengine_node_pool_option.options.sources[0].image_id
+}
+
+
 # -------------------------------------------------------------
 # NODE POOL
 # -------------------------------------------------------------
@@ -122,7 +127,8 @@ resource "oci_containerengine_node_pool" "pool1" {
   ssh_public_key = file(var.ssh_public_key_path)
 
   node_source_details {
-    source_type = "IMAGE"  # OCI seleccionará la imagen compatible automáticamente
+    source_type = "IMAGE"
+    image_id    = local.oke_image_id
   }
 
   node_config_details {
