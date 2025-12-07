@@ -141,6 +141,10 @@ output "debug_images" {
   ]
 }
 
+output "valid_shapes" {
+  value = data.oci_containerengine_node_pool_option.options.shapes
+}
+
 
 
 # -------------------------------------------------------------
@@ -153,7 +157,7 @@ resource "oci_containerengine_node_pool" "pool1" {
   name               = "${var.label_prefix}-nodepool"
   kubernetes_version = "v1.33.1"
 
-  node_shape = "VM.Standard.E4.Flex"
+  node_shape = "VM.Standard3.Flex"
 
   node_shape_config {
     ocpus         = 1
