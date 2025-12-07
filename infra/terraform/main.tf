@@ -116,23 +116,23 @@ data "oci_containerengine_node_pool_option" "options" {
 
 locals {
   oke_image = [
-    for s in data.oci_containerengine_node_pool_option.options.sources :
-    s.image_id
-    if s.source_type == "IMAGE" &&
-       can(s.display_name) &&
-       regex("(?i)OKE", s.display_name)
+    for img in data.oci_core_images.oke_images.images :
+    img.id
+    if can(img.display_name) &&
+       regex("(?i)OKE", img.display_name)
   ][0]
 }
 
 output "debug_images" {
   value = [
-    for s in data.oci_containerengine_node_pool_option.options.sources :
+    for img in data.oci_core_images.oke_images.images :
     {
-      id   = s.image_id
-      name = can(s.display_name) ? s.display_name : "unknown"
+      id   = img.id
+      name = img.display_name
     }
   ]
 }
+
 
 
 # -------------------------------------------------------------
