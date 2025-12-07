@@ -123,7 +123,11 @@ data "oci_containerengine_node_pool_option" "options" {
 #  ][0]
 #}
 locals {
-  oke_image = data.oci_core_images.oke_images.images[0].id
+  oke_image = [
+    for s in data.oci_containerengine_node_pool_option.options.sources :
+    s.image_id
+    if s.source_type == "IMAGE"
+  ][0]
 }
 
 
