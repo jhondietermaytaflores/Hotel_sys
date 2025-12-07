@@ -110,6 +110,10 @@ resource "oci_containerengine_cluster" "oke" {
 # DATA SOURCE FOR NODE POOL OPTIONS (MUST BE AFTER CLUSTER)
 # -------------------------------------------------------------
 
+data "oci_containerengine_node_pool_option" "options" {
+  node_pool_option_id = oci_containerengine_cluster.oke.id
+}
+
 # Filtramos LA imagen compatible con VM.Standard.E4.Flex
 locals {
   oke_image = [
