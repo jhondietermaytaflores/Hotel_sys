@@ -32,7 +32,6 @@ data "oci_core_images" "oke_images" {
   compartment_id           = var.compartment_id
   operating_system         = "Oracle Linux"
   operating_system_version = "9"
-  shape                    = "VM.Standard.E4.Flex"
 }
 
 # -------------------------------------------------------------
@@ -123,12 +122,18 @@ data "oci_containerengine_node_pool_option" "options" {
 #  ][0]
 #}
 locals {
-  oke_image = [
-    for s in data.oci_containerengine_node_pool_option.options.sources :
-    s.image_id
-    if s.source_type == "IMAGE"
-  ][0]
+  oke_compatible_images = [
+    for img in data.oci_core_images.oke_images.images :
+    img
+    if can(img.display_name) && (
+      regex("(?i)OKE", img.display_name)
+    )
+  ]
+
+  # elegir la más reciente
+  oke_image_id = local.oke_compatible_images[0].id
 }
+
 
 
 output "debug_images" {
@@ -145,6 +150,9 @@ output "valid_shapes" {
   value = data.oci_containerengine_node_pool_option.options.shapes
 }
 
+output "oke_filtered_images" {
+  value = local.oke_compatible_images
+}
 
 
 # -------------------------------------------------------------
@@ -164,6 +172,7 @@ node_shape = "VM.Standard2.1"
 
   node_source_details {
     source_type = "IMAGE"
+    image_id    = local.oke_image_id
   }
 
 
