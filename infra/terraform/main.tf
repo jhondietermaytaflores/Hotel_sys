@@ -54,19 +54,19 @@ resource "oci_core_default_route_table" "rt" {
 }
 
 resource "oci_core_subnet" "public" {
-  cidr_block                 = "10.0.1.0/24"
-  display_name               = "${var.label_prefix}-public-subnet"
-  compartment_id             = var.compartment_id
-  vcn_id                     = oci_core_vcn.main.id
-  prohibit_public_ip_on_vnic = false
+  cidr_block                  = "10.0.1.0/24"
+  display_name                = "${var.label_prefix}-public-subnet"
+  compartment_id              = var.compartment_id
+  vcn_id                      = oci_core_vcn.main.id
+  prohibit_public_ip_on_vnic  = false
 }
 
 resource "oci_core_subnet" "private" {
-  cidr_block                 = "10.0.2.0/24"
-  display_name               = "${var.label_prefix}-private-subnet"
-  compartment_id             = var.compartment_id
-  vcn_id                     = oci_core_vcn.main.id
-  prohibit_public_ip_on_vnic = true
+  cidr_block                  = "10.0.2.0/24"
+  display_name                = "${var.label_prefix}-private-subnet"
+  compartment_id              = var.compartment_id
+  vcn_id                      = oci_core_vcn.main.id
+  prohibit_public_ip_on_vnic  = true
 }
 
 # -------------------------------------------------------------
@@ -96,23 +96,6 @@ resource "oci_containerengine_cluster" "oke" {
 }
 
 # -------------------------------------------------------------
-# NODE POOL OPTIONS (SOLO PARA VER SHAPES)
-# -------------------------------------------------------------
-
-data "oci_containerengine_node_pool_option" "options" {
-  node_pool_option_id = oci_containerengine_cluster.oke.id
-}
-
-output "valid_shapes" {
-  value = data.oci_containerengine_node_pool_option.options.shapes
-}
-
-locals {
-  oke_image_id = data.oci_containerengine_node_pool_option.options.sources[0].image_id
-}
-
-
-# -------------------------------------------------------------
 # NODE POOL
 # -------------------------------------------------------------
 
@@ -122,14 +105,12 @@ resource "oci_containerengine_node_pool" "pool1" {
   name               = "${var.label_prefix}-nodepool"
   kubernetes_version = "v1.33.1"
 
+  # IMPORTANTE: usar un shape soportado que ya viste en valid_shapes
   node_shape = "VM.Standard2.1"
 
   ssh_public_key = file(var.ssh_public_key_path)
 
-  node_source_details {
-    source_type = "IMAGE"
-    image_id    = local.oke_image_id
-  }
+  # NO ENVIAR node_source_details. Deja que OKE elija la imagen por defecto.
 
   node_config_details {
     size = 1
