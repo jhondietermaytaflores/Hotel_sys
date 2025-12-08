@@ -101,6 +101,11 @@ jobs:
           IP=$(terraform output -raw public_ip)
           echo "public_ip=$IP" >> $GITHUB_OUTPUT
 
+      - name: Obtener IP pública desde Terraform
+        working-directory: infra/terraform
+        run: |
+            VM_IP=$(terraform output -raw public_ip)
+            echo "VM_IP=$VM_IP" >> $GITHUB_ENV
   # ---------------------------------------------------------
   # DEPLOY EN LA VM (SSH + Docker Compose)
   # ---------------------------------------------------------
@@ -112,24 +117,35 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Crear llaves SSH de VM
+        run: |
+            mkdir -p ~/.ssh
+            echo "${TF_SSH_PRIVATE_KEY}" > ~/.ssh/vm-key
+            echo "${TF_SSH_PUBLIC_KEY}" > ~/.ssh/vm-key.pub
+            chmod 600 ~/.ssh/vm-key
+            chmod 644 ~/.ssh/vm-key.pub
+        env:
+          TF_SSH_PRIVATE_KEY: ${{ secrets.TF_SSH_PRIVATE_KEY }}
+          TF_SSH_PUBLIC_KEY:  ${{ secrets.TF_SSH_PUBLIC_KEY }}
+
       - name: Copiar docker-compose a la VM
         run: |
           scp -o StrictHostKeyChecking=no \
             -i ~/.ssh/vm-key \
             deploy/docker-compose.yml \
-            opc@${{ needs.terraform-apply.outputs.public_ip }}:/home/opc/app/docker-compose.yml
+            opc@$VM_IP:/home/opc/app/docker-compose.yml
 
       - name: Ejecutar deploy en la VM
         run: |
           ssh -o StrictHostKeyChecking=no \
             -i ~/.ssh/vm-key \
-            opc@${{ needs.terraform-apply.outputs.public_ip }} "
+            opc@$VM_IP "
               cd /home/opc/app &&
               docker login $OCIR_REGISTRY -u $OCI_USERNAME -p $OCI_AUTH_TOKEN &&
               docker compose pull &&
               docker compose up -d
             "
         env:
-          OCIR_REGISTRY: ${{ env.OCIR_REGISTRY }}
+          OCIR_REGISTRY: ${{ env.OCI_REGION }}.ocir.io
           OCI_USERNAME: ${{ secrets.OCI_USERNAME }}
           OCI_AUTH_TOKEN: ${{ secrets.OCI_AUTH_TOKEN }}
