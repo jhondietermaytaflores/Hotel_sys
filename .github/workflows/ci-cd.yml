@@ -135,34 +135,37 @@ jobs:
           TF_SSH_PRIVATE_KEY: ${{ secrets.TF_SSH_PRIVATE_KEY }}
           TF_SSH_PUBLIC_KEY:  ${{ secrets.TF_SSH_PUBLIC_KEY }}
 
-      - name: Esperar a que cloud-init cree el directorio app
+      - name: Esperar SSH de la VM
         run: |
             echo "Esperando a que la VM esté lista..."
-            for i in {1..20}; do
-              if ssh -o StrictHostKeyChecking=no -i ~/.ssh/vm-key opc@$VM_IP "test -d /home/opc/app"; then
-                echo "Directorio /home/opc/app disponible!"
-                break
-              fi
-                echo "Aún no disponible, esperando 10s..."
-                sleep 10
-              done
+             for i in {1..30}; do
+               if ssh -o StrictHostKeyChecking=no -i ~/.ssh/vm-key opc@$VM_IP "echo ok" 2>/dev/null; then
+                 echo "VM lista!"
+                 break
+               fi
+               echo "Aún no disponible, esperando 10s..."
+               sleep 10
+             done
 
       - name: Copiar docker-compose a la VM (esperando)
         run: |
           for i in {1..15}; do
             echo "Intento $i..."
-            scp -o StrictHostKeyChecking=no -i ~/.ssh/vm-key deploy/docker-compose.yml opc@$VM_IP:/home/opc/app/docker-compose.yml && break
-            echo "Aún no disponible, esperando 10s..."
+            scp -o StrictHostKeyChecking=no -i ~/.ssh/vm-key \
+              deploy/docker-compose.yml \
+              opc@$VM_IP:/home/opc/app/docker-compose.yml && break
+
+          echo "Aún no disponible, esperando 10s..."
             sleep 10
           done
       - name: Ejecutar deploy en la VM
         run: |
-         ssh -o StrictHostKeyChecking=no -i ~/.ssh/vm-key opc@$VM_IP << 'EOF'
+          ssh -o StrictHostKeyChecking=no -i ~/.ssh/vm-key opc@$VM_IP << 'EOF'
              cd /home/opc/app
              docker login $OCIR_REGISTRY -u $OCI_USERNAME -p $OCI_AUTH_TOKEN
              docker compose pull
              docker compose up -d
-         EOF
+          EOF
         env:
           OCIR_REGISTRY: ${{ env.OCI_REGION }}.ocir.io
           OCI_USERNAME: ${{ secrets.OCI_USERNAME }}
