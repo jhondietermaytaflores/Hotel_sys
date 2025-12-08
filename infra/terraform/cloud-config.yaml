@@ -2,37 +2,31 @@
 package_update: true
 package_upgrade: true
 
-write_files:
-  - path: /var/log/hotel-init.log
-    permissions: '0644'
-    owner: root
-    content: |
-      ==== INICIO CLOUD-INIT ====
-
 runcmd:
+  # 1. Actualizar sistema
   - echo "[1/5] Actualizando sistema..." >> /var/log/hotel-init.log
   - yum update -y || dnf update -y
 
-  # Instalar Docker
-  - echo "[2/5] Instalando Docker..." >> /var/log/hotel-init.log
+  # 2. Instalar Docker
+  - echo "[2/5] Instalando docker..." >> /var/log/hotel-init.log
   - yum install -y docker || dnf install -y docker
   - systemctl enable docker
   - systemctl start docker
   - usermod -aG docker opc
 
-  # Instalar Docker Compose
+  # 3. Instalar Docker Compose
   - echo "[3/5] Instalando docker-compose..." >> /var/log/hotel-init.log
   - curl -L "https://github.com/docker/compose/releases/download/v2.23.3/docker-compose-linux-x86_64" \
       -o /usr/local/bin/docker-compose
   - chmod +x /usr/local/bin/docker-compose
 
-  # Crear carpeta de app
-  - echo "[4/5] Creando carpeta /home/opc/app..." >> /var/log/hotel-init.log
+  # 4. Crear carpeta de app
+  - echo "[4/5] Creando /home/opc/app..." >> /var/log/hotel-init.log
   - mkdir -p /home/opc/app
   - chown opc:opc /home/opc/app
 
-  # Crear red docker hotel-net
+  # 5. Crear red docker
   - echo "[5/5] Creando red hotel-net..." >> /var/log/hotel-init.log
   - docker network create hotel-net || true
 
-final_message: "La instancia ha sido inicializada. Revisa /var/log/hotel-init.log para más detalles."
+final_message: "cloud-config completado correctamente."

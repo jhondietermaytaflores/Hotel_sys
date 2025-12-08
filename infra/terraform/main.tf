@@ -130,9 +130,9 @@ resource "oci_core_instance" "hotel_vm" {
   }
 
   metadata = {
-    ssh_authorized_keys = file(var.ssh_public_key_path)
-    user_data = base64encode(file("${path.module}/cloud-config.yaml"))
-  }
+  ssh_authorized_keys = file(var.ssh_public_key_path)
+  user_data           = base64encode(file("${path.module}/cloud-config.yaml"))
+}
 
   source_details {
   source_type = "image"
