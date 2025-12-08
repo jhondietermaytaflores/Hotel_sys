@@ -28,6 +28,8 @@ data "oci_identity_availability_domains" "ads" {
 data "oci_core_images" "oracle_linux_latest" {
   compartment_id   = var.compartment_id
   operating_system = "Oracle Linux"
+  operating_system_version = "8"   # ← MUY IMPORTANTE
+  shape = "VM.Standard2.1"         # ← OBLIGA A COMPATIBILIDAD
   sort_by          = "TIMECREATED"
   sort_order       = "DESC"
 }
@@ -89,10 +91,10 @@ resource "oci_core_instance" "hotel_vm" {
   }
 
   source_details {
-    source_type = "image"
-    # OJO: aquí es source_id, no image_id ni blocks raros
-    source_id   = data.oci_core_images.oracle_linux_latest.images[0].id
-  }
+  source_type = "image"
+  source_id   = data.oci_core_images.oracle_linux_latest.images[0].id
+}
+
 }
 
 # -------------------------------------------------------------
