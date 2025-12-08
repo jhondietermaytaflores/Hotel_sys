@@ -44,14 +44,18 @@ jobs:
           docker push $OCIR_REGISTRY/$OCI_NAMESPACE/${APP_NAME}-frontend:latest
 
   # ---------------------------------------------------------
-  # TERRAFORM (solo crea/redimensiona la VM)
+  # TERRAFORM
   # ---------------------------------------------------------
   terraform-apply:
     runs-on: ubuntu-latest
     needs: build-and-push-images
+
     defaults:
       run:
         working-directory: infra/terraform
+
+    outputs:
+      vm_ip: ${{ steps.export_ip.outputs.vm_ip }}
 
     env:
       TF_VAR_tenancy_id:       ${{ secrets.OCI_TENANCY_OCID }}
@@ -95,35 +99,38 @@ jobs:
       - name: Terraform Apply
         run: terraform apply -auto-approve
 
-      - name: Export VM Public IP
-        id: ip
+      - name: Export VM IP
+        id: export_ip
         run: |
-          IP=$(terraform output -raw public_ip)
-          echo "public_ip=$IP" >> $GITHUB_OUTPUT
+          VM_IP=$(terraform output -raw public_ip)
+          echo "vm_ip=$VM_IP"
+          echo "vm_ip=$VM_IP" >> $GITHUB_OUTPUT
 
-      - name: Obtener IP pública desde Terraform
-        working-directory: infra/terraform
-        run: |
-            VM_IP=$(terraform output -raw public_ip)
-            echo "VM_IP=$VM_IP" >> $GITHUB_ENV
   # ---------------------------------------------------------
-  # DEPLOY EN LA VM (SSH + Docker Compose)
+  # DEPLOY EN VM
   # ---------------------------------------------------------
   deploy-vm:
     runs-on: ubuntu-latest
     needs: terraform-apply
 
+    env:
+      VM_IP: ${{ needs.terraform-apply.outputs.vm_ip }}
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Crear llaves SSH de VM
+      - name: Debug IP
         run: |
-            mkdir -p ~/.ssh
-            echo "${TF_SSH_PRIVATE_KEY}" > ~/.ssh/vm-key
-            echo "${TF_SSH_PUBLIC_KEY}" > ~/.ssh/vm-key.pub
-            chmod 600 ~/.ssh/vm-key
-            chmod 644 ~/.ssh/vm-key.pub
+            echo "VM_IP obtenido: $VM_IP"
+
+      - name: Crear llaves SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${TF_SSH_PRIVATE_KEY}" > ~/.ssh/vm-key
+          echo "${TF_SSH_PUBLIC_KEY}"  > ~/.ssh/vm-key.pub
+          chmod 600 ~/.ssh/vm-key
+          chmod 644 ~/.ssh/vm-key.pub
         env:
           TF_SSH_PRIVATE_KEY: ${{ secrets.TF_SSH_PRIVATE_KEY }}
           TF_SSH_PUBLIC_KEY:  ${{ secrets.TF_SSH_PUBLIC_KEY }}
