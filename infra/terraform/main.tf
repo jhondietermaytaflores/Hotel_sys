@@ -61,12 +61,56 @@ resource "oci_core_default_route_table" "rt" {
   }
 }
 
+
+
+resource "oci_core_security_list" "public_sl" {
+  compartment_id = var.compartment_id
+  vcn_id         = oci_core_vcn.main.id
+  display_name   = "public-security-list"
+
+  ingress_security_rules {
+    protocol = "6" # TCP
+    source   = "0.0.0.0/0"
+
+    tcp_options {
+      min = 22
+      max = 22
+    }
+  }
+
+  ingress_security_rules {
+    protocol = "6"
+    source   = "0.0.0.0/0"
+
+    tcp_options {
+      min = 80
+      max = 80
+    }
+  }
+
+  ingress_security_rules {
+    protocol = "6"
+    source   = "0.0.0.0/0"
+
+    tcp_options {
+      min = 3000
+      max = 3001
+    }
+  }
+
+  egress_security_rules {
+    protocol    = "all"
+    destination = "0.0.0.0/0"
+  }
+}
+
 resource "oci_core_subnet" "public" {
   cidr_block                 = "10.0.1.0/24"
   display_name               = "hotel-public-subnet"
   compartment_id             = var.compartment_id
   vcn_id                     = oci_core_vcn.main.id
   prohibit_public_ip_on_vnic = false
+  security_list_ids          = [oci_core_security_list.public_sl.id]
 }
 
 # -------------------------------------------------------------

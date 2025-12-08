@@ -135,13 +135,14 @@ jobs:
           TF_SSH_PRIVATE_KEY: ${{ secrets.TF_SSH_PRIVATE_KEY }}
           TF_SSH_PUBLIC_KEY:  ${{ secrets.TF_SSH_PUBLIC_KEY }}
 
-      - name: Copiar docker-compose a la VM
+      - name: Copiar docker-compose a la VM (esperando)
         run: |
-          scp -o StrictHostKeyChecking=no \
-            -i ~/.ssh/vm-key \
-            deploy/docker-compose.yml \
-            opc@$VM_IP:/home/opc/app/docker-compose.yml
-
+          for i in {1..15}; do
+            echo "Intento $i..."
+            scp -o StrictHostKeyChecking=no -i ~/.ssh/vm-key deploy/docker-compose.yml opc@$VM_IP:/home/opc/app/docker-compose.yml && break
+            echo "Aún no disponible, esperando 10s..."
+            sleep 10
+          done
       - name: Ejecutar deploy en la VM
         run: |
           ssh -o StrictHostKeyChecking=no \
