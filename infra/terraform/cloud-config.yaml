@@ -7,7 +7,7 @@ runcmd:
   - echo "[1/5] Actualizando sistema..." >> /var/log/hotel-init.log
   - yum update -y || dnf update -y
 
-  # 2. Instalar Docker
+  # 2. Instalar Docker in
   - echo "[2/5] Instalando docker..." >> /var/log/hotel-init.log
   - yum install -y docker || dnf install -y docker
   - systemctl enable docker
